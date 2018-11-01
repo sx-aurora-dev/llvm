@@ -155,6 +155,12 @@ using namespace llvm;
 STATISTIC(LoopsVectorized, "Number of loops vectorized");
 STATISTIC(LoopsAnalyzed, "Number of loops analyzed for vectorization");
 
+static cl::opt<bool> EnableLoopVectorizer(
+    "llvm-loopvec",
+    cl::init(true),
+    cl::NotHidden,
+    cl::desc("Disable LLVM's loop vectorizer for good."));
+
 /// Loops with a known constant trip count below this number are vectorized only
 /// if no scalar iteration overheads are incurred.
 static cl::opt<unsigned> TinyTripCountVectorThreshold(
@@ -1434,6 +1440,11 @@ struct LoopVectorize : public FunctionPass {
   }
 
   bool runOnFunction(Function &F) override {
+    if (!EnableLoopVectorizer) {
+      dbgs() << "llvm: LLVM LoopVectorizer disabled!\n";
+      return false;
+    }
+
     if (skipFunction(F))
       return false;
 
