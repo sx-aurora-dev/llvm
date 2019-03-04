@@ -81,6 +81,12 @@ public:
   bool shouldExpandReduction(const IntrinsicInst *II) const {
     return false;
   }
+
+  bool haveFastSqrt(Type *Ty) {
+    auto VecTy = dyn_cast<VectorType>(Ty);
+    if (!VecTy) return false;
+    return VecTy->getNumElements() == 256 && VecTy->getElementType()->isDoubleTy();
+  }
 };
 
 }
