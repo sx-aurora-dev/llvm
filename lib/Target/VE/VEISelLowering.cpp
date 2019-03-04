@@ -228,15 +228,26 @@ SDValue
 VETargetLowering::LowerBroadcast(SDValue Chain, SelectionDAG & DAG) const {
   SDLoc dl(Chain);
 
-// only use custom lowering for masks
+  // only use custom lowering for masks
   auto chainTy = Chain.getSimpleValueType();
   if (chainTy != MVT::v256i1 && chainTy != MVT::v512i1) return Chain; // TODO implement this for v512i1 (simply using VMP0)
   if (Chain.getOpcode() != VEISD::VEC_BROADCAST) return Chain;
 
-
+  // generate VM from VRegs if the mask bit is non-constant
   auto bcConst = dyn_cast<ConstantSDNode>(Chain.getOperand(0));
   if (!bcConst) {
-    abort(); // TODO implement dynamic broadcast for masks
+    auto boolTy = Chain.getOperand(0).getSimpleValueType();
+    assert(boolTy == MVT::i32);
+
+    // cast to i64
+    SDValue asDoubleElem = DAG.getSExtOrTrunc(Chain.getOperand(0), dl, MVT::i64);
+
+    // broadcast to vector
+    SDValue dataVec = DAG.getNode(VEISD::VEC_BROADCAST, dl, MVT::v256i64, {asDoubleElem});
+    SDValue zeroVec = DAG.getNode(VEISD::VEC_BROADCAST, dl, MVT::v256i64, {DAG.getConstant(0, dl, MVT::i64)});
+
+    // broadcast(Data) != broadcast(0)
+    return DAG.getSetCC(dl, MVT::v256i1, dataVec, zeroVec, ISD::CondCode::SETNE);
   }
 
   // use the hard-wired vm0/vmp0 registers
