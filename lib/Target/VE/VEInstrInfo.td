@@ -35,10 +35,11 @@ def zero    : PatLeaf<(imm), [{ return N->getSExtValue() == 0; }]>;
 def CCSIOp : PatLeaf<(cond), [{
   switch (N->get()) {
   default:          return true;
-  case ISD::SETULT:
-  case ISD::SETULE:
-  case ISD::SETUGT:
-  case ISD::SETUGE: return false;
+  // FIXME: this is potentially unsafe! FIXME FIXME
+  // case ISD::SETULT:
+  // case ISD::SETULE:
+  // case ISD::SETUGT:
+  // case ISD::SETUGE: return false;
   }
 }]>;
 
