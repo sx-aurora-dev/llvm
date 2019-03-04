@@ -103,30 +103,29 @@ VETargetLowering::LowerMGATHER_MSCATTER(SDValue Op, SelectionDAG &DAG) const {
   SDValue ScaleBroadcast = DAG.getNode(VEISD::VEC_BROADCAST, dl, IndexVT, N->getScale());
 
   SDValue index_addr = DAG.getNode(ISD::MUL, dl, IndexVT, {Index, ScaleBroadcast});
-
   SDValue addresses = DAG.getNode(ISD::ADD, dl, IndexVT, {BaseBroadcast, index_addr});
 
   // TODO: vmx = svm (mask);
   //Mask.dumpr(&DAG);
-  if (Mask.getOpcode() != ISD::BUILD_VECTOR || Mask.getNumOperands() != 256) {
-    LLVM_DEBUG(dbgs() << "Cannot handle gathers with complex masks.\n");
-    return SDValue();
-  }
-  for (unsigned i = 0; i < 256; i++) {
-    const SDValue Operand = Mask.getOperand(i);
-    if (Operand.getOpcode() != ISD::Constant) {
-      LLVM_DEBUG(dbgs() << "Cannot handle gather masks with complex elements.\n");
-      return SDValue();
-    }
-    if (Mask.getConstantOperandVal(i) != 1) {
-      LLVM_DEBUG(dbgs() << "Cannot handle gather masks with elements != 1.\n");
-      return SDValue();
-    }
-  }
+  // if (Mask.getOpcode() != ISD::BUILD_VECTOR || Mask.getNumOperands() != 256) {
+  //   LLVM_DEBUG(dbgs() << "Cannot handle gathers with complex masks.\n");
+  //   return SDValue();
+  // }
+  // for (unsigned i = 0; i < 256; i++) {
+  //   const SDValue Operand = Mask.getOperand(i);
+  //   if (Operand.getOpcode() != ISD::Constant) {
+  //     LLVM_DEBUG(dbgs() << "Cannot handle gather masks with complex elements.\n");
+  //     return SDValue();
+  //   }
+  //   if (Mask.getConstantOperandVal(i) != 1) {
+  //     LLVM_DEBUG(dbgs() << "Cannot handle gather masks with elements != 1.\n");
+  //     return SDValue();
+  //   }
+  // }
 
   if (Op.getOpcode() == ISD::MGATHER) {
     // vt = vgt (vindex, vmx, cs=0, sx=0, sy=0, sw=0);
-    SDValue load = DAG.getNode(VEISD::VEC_GATHER, dl, Op.getNode()->getVTList(), {Chain, addresses});
+    SDValue load = DAG.getNode(VEISD::VEC_GATHER, dl, Op.getNode()->getVTList(), {Chain, addresses, Mask});
     //load.dumpr(&DAG);
 
     // TODO: merge (vt, default, vmx);
@@ -135,7 +134,7 @@ VETargetLowering::LowerMGATHER_MSCATTER(SDValue Op, SelectionDAG &DAG) const {
 
     return load;
   } else {
-    SDValue store = DAG.getNode(VEISD::VEC_SCATTER, dl, Op.getNode()->getVTList(), {Chain, Source, addresses});
+    SDValue store = DAG.getNode(VEISD::VEC_SCATTER, dl, Op.getNode()->getVTList(), {Chain, Source, addresses, Mask});
     //store.dumpr(&DAG);
     return store;
   }
