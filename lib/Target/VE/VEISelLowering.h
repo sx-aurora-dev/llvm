@@ -551,6 +551,8 @@ namespace llvm {
     SDValue LowerToTLSLocalExecModel(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerConstantPool(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerBlockAddress(SDValue Op, SelectionDAG &DAG) const;
+
+    SDValue LowerBroadcast(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerBUILD_VECTOR(SDValue Op, SelectionDAG &DAG) const;
 
     SDValue LowerBitcast(SDValue Op, SelectionDAG &DAG) const;

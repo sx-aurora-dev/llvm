@@ -225,6 +225,33 @@ static bool isBroadCast(BuildVectorSDNode *BVN,
 }
 
 SDValue
+VETargetLowering::LowerBroadcast(SDValue Chain, SelectionDAG & DAG) const {
+  SDLoc dl(Chain);
+
+// only use custom lowering for masks
+  auto chainTy = Chain.getSimpleValueType();
+  if (chainTy != MVT::v256i1 && chainTy != MVT::v512i1) return Chain; // TODO implement this for v512i1 (simply using VMP0)
+  if (Chain.getOpcode() != VEISD::VEC_BROADCAST) return Chain;
+
+
+  auto bcConst = dyn_cast<ConstantSDNode>(Chain.getOperand(0));
+  if (!bcConst) {
+    abort(); // TODO implement dynamic broadcast for masks
+  }
+
+  // use the hard-wired vm0/vmp0 registers
+  unsigned TrueRegClass = chainTy == MVT::v256i1 ? VE::VM0 : VE::VMP0;
+  SDValue TrueMaskReg = DAG.getCopyFromReg(DAG.getEntryNode(),
+                                           dl, TrueRegClass, chainTy);
+
+  bool genTrueMask = (bool) bcConst->getSExtValue();
+
+  if (genTrueMask) return TrueMaskReg;
+  return DAG.getNode(VEISD::INT_NEGM, dl, chainTy, {TrueMaskReg});
+}
+
+
+SDValue
 VETargetLowering::LowerBUILD_VECTOR(SDValue Op, SelectionDAG &DAG) const {
   LLVM_DEBUG(dbgs() << "Lowering BUILD_VECTOR\n");
   BuildVectorSDNode *BVN = cast<BuildVectorSDNode>(Op.getNode());
@@ -238,13 +265,13 @@ VETargetLowering::LowerBUILD_VECTOR(SDValue Op, SelectionDAG &DAG) const {
     if (AllUndef) {
       LLVM_DEBUG(dbgs() << "AllUndef: VEC_BROADCAST ");
       LLVM_DEBUG(BVN->getOperand(0)->dump());
-      return DAG.getNode(VEISD::VEC_BROADCAST, DL, Op.getSimpleValueType(),
-                         BVN->getOperand(0));
+      return LowerBroadcast(DAG.getNode(VEISD::VEC_BROADCAST, DL, Op.getSimpleValueType(),
+                                        BVN->getOperand(0)), DAG);
     } else {
       LLVM_DEBUG(dbgs() << "isBroadCast: VEC_BROADCAST ");
       LLVM_DEBUG(BVN->getOperand(FirstDef)->dump());
-      return DAG.getNode(VEISD::VEC_BROADCAST, DL, Op.getSimpleValueType(),
-                         BVN->getOperand(FirstDef));
+      return LowerBroadcast(DAG.getNode(VEISD::VEC_BROADCAST, DL, Op.getSimpleValueType(),
+                                        BVN->getOperand(FirstDef)), DAG);
     }
   }
 
@@ -253,6 +280,8 @@ VETargetLowering::LowerBUILD_VECTOR(SDValue Op, SelectionDAG &DAG) const {
     // All values are either a constant value or undef, so optimize it...
   }
 #endif
+
+  // FIXME split constant masks into i64
 
 // match VEC_SEQ(stride) patterns
   // identify a constant stride vector
@@ -1273,7 +1302,7 @@ VETargetLowering::VETargetLowering(const TargetMachine &TM,
       setOperationAction(ISD::UINT_TO_FP, VT, Promote); // use i64
     } else {
       if (VT.getVectorNumElements() == 2) {
-        // FIXME: it is not possible to write 
+        // FIXME: it is not possible to write
         // "Pat<(v2i64 (sext v2i32:$vx)), ...>;" patterns because of
         // unknown "vtInt:  (vt:{ *:[Other] })" errors.
         setOperationAction(ISD::SIGN_EXTEND, VT, Expand);

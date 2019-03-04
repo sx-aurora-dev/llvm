@@ -476,6 +476,9 @@ def : Pat<(fdiv (v512f32 (vec_broadcast i64:$sy)), v512f32:$vz),
 
 multiclass farith_for_vector_length<int length, ValueType vf32,
                                     ValueType vf64> {
+  def : Pat<(fsqrt vf64:$vy),
+            (VFSQRTdv vf64:$vy,
+                    (COPY_TO_REGCLASS (LEAzzi length), VLS))>;
   def : Pat<(fadd vf32:$vy, vf32:$vz),
             (VFADsv vf32:$vy, vf32:$vz,
                     (COPY_TO_REGCLASS (LEAzzi length), VLS))>;
