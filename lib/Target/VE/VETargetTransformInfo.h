@@ -78,6 +78,9 @@ public:
       return true;
   };
 
+  bool shouldExpandReduction(const IntrinsicInst *II) const {
+    return false;
+  }
 };
 
 }

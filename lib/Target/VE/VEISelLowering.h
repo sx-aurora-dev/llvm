@@ -67,6 +67,9 @@ namespace llvm {
 
       VEC_VMV,
 
+      //// Horizontal operations
+      VEC_REDUCE_ANY,
+
       /// Scatter and gather instructions.
       VEC_GATHER,
       VEC_SCATTER,
@@ -554,6 +557,8 @@ namespace llvm {
 
     SDValue LowerBroadcast(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerBUILD_VECTOR(SDValue Op, SelectionDAG &DAG) const;
+
+    SDValue LowerVECREDUCE(SDValue Op, SelectionDAG &DAG) const;
 
     SDValue LowerBitcast(SDValue Op, SelectionDAG &DAG) const;
 

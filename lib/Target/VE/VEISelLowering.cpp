@@ -431,6 +431,62 @@ VETargetLowering::LowerBUILD_VECTOR(SDValue Op, SelectionDAG &DAG) const {
   return SDValue();
 }
 
+
+SDValue
+VETargetLowering::LowerVECREDUCE(SDValue Op, SelectionDAG &DAG) const {
+  ////  def : Pat<(vecreduce_add v256i1:$vy), (PCVM v256i1:$vy,
+  ////                     (COPY_TO_REGCLASS (LEAzzi 256), VLS))>;
+  ////
+  ////  // "any" mask test // TODO do we need to set sign bit proper?
+  ////  def : Pat<(vecreduce_or v256i1:$vy), (vecreduce_add v256i1:$vy))>;
+
+  SDLoc dl(Op);
+
+  auto AVL = DAG.getConstant(256, dl, MVT::i32);
+
+  SDValue Result;
+  switch (Op->getOpcode()) {
+    default:
+      llvm_unreachable("TODO implement!");
+
+    // case ISD::VECREDUCE_ADD: // "popcnt" case
+
+    case ISD::VECREDUCE_OR: // reduce "any" case to PopCnt(V) != 0
+    {
+      SDValue popCount = DAG.getNode(VEISD::VEC_REDUCE_ANY, dl, MVT::i64, {Op.getOperand(0), AVL});
+      Result = DAG.getSetCC(dl, MVT::i32, popCount, DAG.getConstant(0, dl, MVT::i64),
+                     ISD::CondCode::SETNE);
+
+      break;
+    }
+
+    case ISD::VECREDUCE_ADD: // reduce "add" case to popcount
+    {
+      Result = DAG.getNode(VEISD::VEC_REDUCE_ANY, dl, MVT::i64, {Op.getOperand(0), AVL});
+
+      break;
+    }
+  }
+
+  // cast type as required
+  auto resTy = Op.getSimpleValueType();
+  if (Result.getSimpleValueType() != resTy) {
+    assert(resTy == MVT::i32);
+
+    // SDValue SubReg32 = DAG.getTargetConstant(VE::sub_i32, dl, MVT::i32);
+
+    // extract subreg as required
+    SDValue Lo32 = DAG.getTargetExtractSubreg(VE::sub_i32,
+                                      dl,
+                                      MVT::i32,
+                                      Result);
+    return Lo32;
+
+  }
+
+  return Result;
+}
+
 SDValue
 VETargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
                               bool IsVarArg,
@@ -1246,7 +1302,15 @@ VETargetLowering::VETargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::LOAD, MVT::f128, Custom);
   setOperationAction(ISD::STORE, MVT::f128, Custom);
 
+  // horizontal reductions
+  setOperationAction(ISD::VECREDUCE_OR, MVT::i32, Custom);
+  setOperationAction(ISD::VECREDUCE_OR, MVT::i64, Custom);
+
+  // reduction operationrs
   for (MVT VT : MVT::vector_valuetypes()) {
+    // setOperationAction(ISD::VECREDUCE_ADD, Custom);
+    // setOperationAction(ISD::VECREDUCE_FADD, Custom);
+
     if (VT.getVectorElementType() == MVT::i1 ||
         VT.getVectorElementType() == MVT::i8 ||
         VT.getVectorElementType() == MVT::i16 ||
@@ -1450,6 +1514,8 @@ const char *VETargetLowering::getTargetNodeName(unsigned Opcode) const {
   case VEISD::VEC_VMV:         return "VEISD::VEC_VMV";
   case VEISD::VEC_SCATTER:     return "VEISD::VEC_SCATTER";
   case VEISD::VEC_GATHER:      return "VEISD::VEC_GATHER";
+  case VEISD::VEC_REDUCE_ANY:  return "VEISD::VEC_REDUCE_ANY";
+
   case VEISD::Wrapper:         return "VEISD::Wrapper";
   case VEISD::INT_LVM:         return "VEISD::INT_LVM";
   case VEISD::INT_SVM:         return "VEISD::INT_SVM";
@@ -3304,6 +3370,7 @@ LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   case ISD::INTRINSIC_W_CHAIN:  return LowerINTRINSIC_W_CHAIN(Op, DAG);
   case ISD::INTRINSIC_WO_CHAIN: return LowerINTRINSIC_WO_CHAIN(Op, DAG);
   case ISD::BUILD_VECTOR:       return LowerBUILD_VECTOR(Op, DAG);
+  case ISD::VECREDUCE_OR:       return LowerVECREDUCE(Op, DAG);
   case ISD::INSERT_VECTOR_ELT:  return LowerINSERT_VECTOR_ELT(Op, DAG);
   case ISD::EXTRACT_VECTOR_ELT: return LowerEXTRACT_VECTOR_ELT(Op, DAG);
 
