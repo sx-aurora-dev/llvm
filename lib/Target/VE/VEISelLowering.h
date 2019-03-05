@@ -69,6 +69,7 @@ namespace llvm {
 
       //// Horizontal operations
       VEC_REDUCE_ANY,
+      VEC_POPCOUNT,
 
       /// Scatter and gather instructions.
       VEC_GATHER,
@@ -565,6 +566,8 @@ namespace llvm {
     SDValue LowerVECTOR_SHUFFLE(SDValue Op, SelectionDAG &DAG) const;
 
     SDValue LowerMGATHER_MSCATTER(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerSETCC(llvm::SDValue, llvm::SelectionDAG&) const;
+    SDValue LowerTRUNCATE(llvm::SDValue, llvm::SelectionDAG&) const;
 
     SDValue LowerMLOAD(SDValue Op, SelectionDAG &DAG) const;
 

@@ -68,6 +68,33 @@ VETargetLowering::LowerBitcast(SDValue Op, SelectionDAG &DAG) const {
 }
 
 SDValue
+VETargetLowering::LowerTRUNCATE(SDValue Op, SelectionDAG &DAG) const {
+  LLVM_DEBUG(dbgs() << "Simpliying vector TRUNCATE\n");
+
+  // eliminate redundant truncates of "i1"
+  MVT Ty = Op.getSimpleValueType();
+  if (!Ty.isVector()) return Op;
+
+  // truncate $vr to i1  ---> $vr
+  MVT OpTy = Op.getOperand(0).getSimpleValueType();
+  if (OpTy.getVectorElementType() != MVT::i1) return Op;
+  return Op;
+}
+
+SDValue
+VETargetLowering::LowerSETCC(SDValue Op, SelectionDAG &DAG) const {
+  LLVM_DEBUG(dbgs() << "Lowering SETCC\n");
+
+  MVT Ty = Op.getSimpleValueType();
+  if (!Ty.isVector()) return Op;
+  if (Ty.getVectorElementType() == MVT::i1) return Op;
+
+  LLVM_DEBUG(dbgs() << "Translating vector SETCC to vector mask register\n");
+  SDLoc dl(Op);
+  return DAG.getNode(ISD::SETCC, dl, MVT::v256i1, Op.getOperand(0), Op.getOperand(1), Op.getOperand(2));
+}
+
+SDValue
 VETargetLowering::LowerMGATHER_MSCATTER(SDValue Op, SelectionDAG &DAG) const {
   LLVM_DEBUG(dbgs() << "Lowering gather or scatter\n");
   SDLoc dl(Op);
@@ -441,6 +468,18 @@ VETargetLowering::LowerBUILD_VECTOR(SDValue Op, SelectionDAG &DAG) const {
   return SDValue();
 }
 
+static SDValue PeekThroughCasts(SDValue Op) {
+  switch (Op.getOpcode()) {
+    default:
+      return Op;
+
+    case ISD::ZERO_EXTEND:
+    case ISD::SIGN_EXTEND:
+    case ISD::TRUNCATE:
+      return PeekThroughCasts(Op.getOperand(0));
+  }
+}
+
 
 SDValue
 VETargetLowering::LowerVECREDUCE(SDValue Op, SelectionDAG &DAG) const {
@@ -463,7 +502,8 @@ VETargetLowering::LowerVECREDUCE(SDValue Op, SelectionDAG &DAG) const {
 
     case ISD::VECREDUCE_OR: // reduce "any" case to PopCnt(V) != 0
     {
-      SDValue popCount = DAG.getNode(VEISD::VEC_REDUCE_ANY, dl, MVT::i64, {Op.getOperand(0), AVL});
+      assert(Op.getOperand(0).getSimpleValueType() == MVT::v256i1);
+      SDValue popCount = DAG.getNode(VEISD::VEC_POPCOUNT, dl, MVT::i64, {Op.getOperand(0), AVL});
       Result = DAG.getSetCC(dl, MVT::i32, popCount, DAG.getConstant(0, dl, MVT::i64),
                      ISD::CondCode::SETNE);
 
@@ -472,8 +512,12 @@ VETargetLowering::LowerVECREDUCE(SDValue Op, SelectionDAG &DAG) const {
 
     case ISD::VECREDUCE_ADD: // reduce "add" case to popcount
     {
-      Result = DAG.getNode(VEISD::VEC_REDUCE_ANY, dl, MVT::i64, {Op.getOperand(0), AVL});
+      auto VecOp = PeekThroughCasts(Op->getOperand(0));
 
+      if (VecOp.getOpcode() != ISD::SETCC || VecOp.getSimpleValueType() != MVT::v256i1)
+          return Op;
+
+      Result = DAG.getNode(VEISD::VEC_POPCOUNT, dl, MVT::i64, {VecOp, AVL});
       break;
     }
   }
@@ -1313,8 +1357,18 @@ VETargetLowering::VETargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::STORE, MVT::f128, Custom);
 
   // horizontal reductions
+  setOperationAction(ISD::VECREDUCE_ADD, MVT::i32, Custom);
+  setOperationAction(ISD::VECREDUCE_ADD, MVT::i64, Custom);
+
   setOperationAction(ISD::VECREDUCE_OR, MVT::i32, Custom);
   setOperationAction(ISD::VECREDUCE_OR, MVT::i64, Custom);
+
+  // re-write vector setcc to use a predicate mask
+  setOperationAction(ISD::SETCC,     MVT::v256i64, Custom);
+  setOperationAction(ISD::SETCC,     MVT::v256i32, Custom);
+
+  // truncate of X to i1 -> X
+  setOperationAction(ISD::TRUNCATE,     MVT::v256i32, Custom);
 
   // reduction operationrs
   for (MVT VT : MVT::vector_valuetypes()) {
@@ -1524,7 +1578,9 @@ const char *VETargetLowering::getTargetNodeName(unsigned Opcode) const {
   case VEISD::VEC_VMV:         return "VEISD::VEC_VMV";
   case VEISD::VEC_SCATTER:     return "VEISD::VEC_SCATTER";
   case VEISD::VEC_GATHER:      return "VEISD::VEC_GATHER";
+
   case VEISD::VEC_REDUCE_ANY:  return "VEISD::VEC_REDUCE_ANY";
+  case VEISD::VEC_POPCOUNT:    return "VEISD::VEC_POPCOUNT";
 
   case VEISD::Wrapper:         return "VEISD::Wrapper";
   case VEISD::INT_LVM:         return "VEISD::INT_LVM";
@@ -3380,6 +3436,7 @@ LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   case ISD::INTRINSIC_W_CHAIN:  return LowerINTRINSIC_W_CHAIN(Op, DAG);
   case ISD::INTRINSIC_WO_CHAIN: return LowerINTRINSIC_WO_CHAIN(Op, DAG);
   case ISD::BUILD_VECTOR:       return LowerBUILD_VECTOR(Op, DAG);
+  case ISD::VECREDUCE_ADD:
   case ISD::VECREDUCE_OR:       return LowerVECREDUCE(Op, DAG);
   case ISD::INSERT_VECTOR_ELT:  return LowerINSERT_VECTOR_ELT(Op, DAG);
   case ISD::EXTRACT_VECTOR_ELT: return LowerEXTRACT_VECTOR_ELT(Op, DAG);
@@ -3390,6 +3447,9 @@ LowerOperation(SDValue Op, SelectionDAG &DAG) const {
 
   case ISD::MSCATTER:
   case ISD::MGATHER:            return LowerMGATHER_MSCATTER(Op, DAG);
+
+  case ISD::SETCC:              return LowerSETCC(Op, DAG);
+  case ISD::TRUNCATE:           return LowerTRUNCATE(Op, DAG);
 
   case ISD::MLOAD:              return LowerMLOAD(Op, DAG);
   }

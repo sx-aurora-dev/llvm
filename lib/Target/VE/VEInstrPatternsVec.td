@@ -329,7 +329,8 @@ defm : eve_for_vector_length<2, v2i32, v2i64, v2f32, v2f64>;
 // VEISD::VEC_SEQ - represents a vector sequence where the operand is the stride
 // VEISD::VEC_BROADCAST - represents a vector splat of a scalar value into all vector lanes.
 
-def vecreduce_any   : SDNode<"VEISD::VEC_REDUCE_ANY",       SDTypeProfile<1, 2, [SDTCisInt<0>, SDTCisVec<1>, SDTCisInt<2>]>>;
+def vec_popcount    : SDNode<"VEISD::VEC_POPCOUNT",       SDTypeProfile<1, 2, [SDTCisInt<0>, SDTCisVec<1>, SDTCisInt<2>]>>;
+def vec_reduce_any  : SDNode<"VEISD::VEC_REDUCE_ANY",     SDTypeProfile<1, 2, [SDTCisInt<0>, SDTCisVec<1>, SDTCisInt<2>]>>;
 
 def vec_seq         : SDNode<"VEISD::VEC_SEQ",       SDTypeProfile<1, 1, [SDTCisVec<0>, SDTCisInt<1>]>>;
 def vec_broadcast   : SDNode<"VEISD::VEC_BROADCAST", SDTypeProfile<1, 1, [SDTCisVec<0>]>>;
@@ -617,8 +618,7 @@ def : Pat<(xor v512i1:$vy, v512i1:$vz), (XORMp v512i1:$vy, v512i1:$vz)>;
 
 
 // Horizontal mask operations
-// "any"
-def : Pat<(vecreduce_any v256i1:$vy, i32:$vl),
+def : Pat<(vec_popcount v256i1:$vy, i32:$vl),
               (PCVM v256i1:$vy, 
               (COPY_TO_REGCLASS $vl, VLS))>;
 

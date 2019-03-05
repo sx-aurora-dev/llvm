@@ -296,7 +296,7 @@ unsigned VEInstrInfo::insertBranch(MachineBasicBlock &MBB,
   if (Cond[1].isImm()) {
       BuildMI(&MBB, DL, get(opc[0]))
           .add(Cond[0]) // condition code
-          .add(Cond[1]) // lhs 
+          .add(Cond[1]) // lhs
           .add(Cond[2]) // rhs
           .addMBB(TBB);
   } else {
@@ -385,7 +385,7 @@ void VEInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
     BuildMI(MBB, I, DL, get(VE::VORi1), DestReg)
         .addImm(0)
         .addReg(SrcReg, getKillRegState(KillSrc));
-  else if (VE::VMRegClass.contains(DestReg, SrcReg))
+  else if (VE::VMCRegClass.contains(DestReg, SrcReg)) // testing
     BuildMI(MBB, I, DL, get(VE::ANDM), DestReg)
         .addReg(VE::VM0)
         .addReg(SrcReg, getKillRegState(KillSrc));
@@ -401,7 +401,7 @@ void VEInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
       unsigned Dst = TRI->getSubReg(DestReg, subRegIdx[i]);
       unsigned Src = TRI->getSubReg(SrcReg,  subRegIdx[i]);
       assert(Dst && Src && "Bad sub-register");
-  
+
       MachineInstrBuilder MIB = BuildMI(MBB, I, DL, get(VE::ORri), Dst).
         addReg(Src).addImm(0);
       MovMI = MIB.getInstr();
@@ -808,9 +808,9 @@ bool VEInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     return true;
     }
   case VE::LVMpi: {
-    unsigned VMXu = (MI.getOperand(0).getReg() - VE::VMP0) * 2 + VE::VM0; 
+    unsigned VMXu = (MI.getOperand(0).getReg() - VE::VMP0) * 2 + VE::VM0;
     unsigned VMXl = VMXu + 1;
-    unsigned VMDu = (MI.getOperand(1).getReg() - VE::VMP0) * 2 + VE::VM0; 
+    unsigned VMDu = (MI.getOperand(1).getReg() - VE::VMP0) * 2 + VE::VM0;
     unsigned VMDl = VMDu + 1;
     int64_t imm = MI.getOperand(2).getImm();
     unsigned VMX = VMXl;
@@ -831,7 +831,7 @@ bool VEInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     return true;
   }
   case VE::SVMpi: {
-    unsigned VMZu = (MI.getOperand(1).getReg() - VE::VMP0) * 2 + VE::VM0; 
+    unsigned VMZu = (MI.getOperand(1).getReg() - VE::VMP0) * 2 + VE::VM0;
     unsigned VMZl = VMZu + 1;
     int64_t imm = MI.getOperand(2).getImm();
     unsigned VMZ = VMZl;
