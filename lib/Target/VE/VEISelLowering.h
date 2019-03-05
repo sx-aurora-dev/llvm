@@ -72,7 +72,6 @@ namespace llvm {
       VEC_POPCOUNT,
 
       /// Scatter and gather instructions.
-      VEC_MLOAD,   // (ptr, mask)
       VEC_MSTORE,  // (value, ptr, mask)
       VEC_GATHER,  // (ptrVec, mask),
       VEC_SCATTER, // (value, ptrVec, mask)
@@ -569,6 +568,8 @@ namespace llvm {
 
     SDValue LowerMGATHER_MSCATTER(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerSETCC(llvm::SDValue, llvm::SelectionDAG&) const;
+    SDValue LowerSELECT_CC(llvm::SDValue, llvm::SelectionDAG&) const;
+    SDValue LowerVSELECT(llvm::SDValue, llvm::SelectionDAG&) const;
     SDValue LowerTRUNCATE(llvm::SDValue, llvm::SelectionDAG&) const;
 
     SDValue LowerMLOAD(SDValue Op, SelectionDAG &DAG) const;

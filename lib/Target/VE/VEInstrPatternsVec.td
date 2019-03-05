@@ -336,7 +336,8 @@ def vec_seq         : SDNode<"VEISD::VEC_SEQ",       SDTypeProfile<1, 1, [SDTCis
 def vec_broadcast   : SDNode<"VEISD::VEC_BROADCAST", SDTypeProfile<1, 1, [SDTCisVec<0>]>>;
 
 def vec_scatter   : SDNode<"VEISD::VEC_SCATTER", SDTypeProfile<0, 3, [SDTCisVec<0>, SDTCisVec<1>]>, [SDNPHasChain, SDNPMayStore, SDNPMemOperand]>;
-def vec_gather   : SDNode<"VEISD::VEC_GATHER", SDTypeProfile<1, 2, [SDTCisVec<0>, SDTCisVec<1>]>, [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
+def vec_gather    : SDNode<"VEISD::VEC_GATHER", SDTypeProfile<1, 2, [SDTCisVec<0>, SDTCisVec<1>]>, [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
+def vec_mload     : SDNode<"VEISD::VEC_MLOAD", SDTypeProfile<1, 2, [SDTCisVec<0>, SDTCisVec<2>]>, [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
 
 def vec_lvl   : SDNode<"VEISD::VEC_LVL", SDTypeProfile<0, 1, []>, [SDNPHasChain]>;
 
@@ -397,12 +398,12 @@ def : Pat<(setcc v256i64:$vx, v256i64:$vy, CCSIOp:$cond),
                          (COPY_TO_REGCLASS (LEAzzi 256), VLS)))>;
 
 // FIXME VE only supports signed integer compare (cf section 5.3.1)
-def : Pat<(setcc v256i64:$vx, v256i64:$vy, CCUIOp:$cond),
-          (v256i1 (VFMKv (icond2cc $cond),
-                         (VCMPlv v256i64:$vx, v256i64:$vy,
-                                  (COPY_TO_REGCLASS (LEAzzi 256), VLS)),
-                         (COPY_TO_REGCLASS (LEAzzi 256), VLS)))>;
-
+// def : Pat<(setcc v256i64:$vx, v256i64:$vy, CCUIOp:$cond),
+//           (v256i1 (VFMKv (icond2cc $cond),
+//                          (VCMPlv v256i64:$vx, v256i64:$vy,
+//                                   (COPY_TO_REGCLASS (LEAzzi 256), VLS)),
+//                          (COPY_TO_REGCLASS (LEAzzi 256), VLS)))>;
+// 
 
 // otherwise, it has to be a fp compare
 def : Pat<(setcc v256f64:$vx, v256f64:$vy, CCSIOp:$cond),
@@ -411,16 +412,11 @@ def : Pat<(setcc v256f64:$vx, v256f64:$vy, CCSIOp:$cond),
                                  (COPY_TO_REGCLASS (LEAzzi 256), VLS)),
                          (COPY_TO_REGCLASS (LEAzzi 256), VLS)))>;
 
-// (VFMKv (i32 uimm6:$cc), v256f64:$vz)
-
-// def : Pat<(i32 (setcc i64:$LHS, i64:$RHS, CCSIOp:$cond)),
-//           (EXTRACT_SUBREG
-//               (CMOVLrm0 )>;
-//
-// def : Pat<(setcc v256i64:$vx, v256i64:$vy, $cc),
-//           (VFMKv (i32 uimm6:( $cc)), v256f64:$vz)>;
-
 // Vector Select
+
+def : Pat<(v256i32 (vselect v256i1:$m, v256i32:$vy, v256i32:$vz)),
+          (v256i32 (VMRGvm v256i32:$vz, v256i32:$vy, v256i1:$m,
+                           (COPY_TO_REGCLASS (LEAzzi 256), VLS)))>;
 
 def : Pat<(v256i64 (vselect v256i1:$m, v256i64:$vy, v256i64:$vz)),
           (v256i64 (VMRGvm v256i64:$vz, v256i64:$vy, v256i1:$m,
