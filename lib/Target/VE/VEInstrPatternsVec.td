@@ -406,9 +406,9 @@ def : Pat<(setcc v256i64:$vx, v256i64:$vy, CCSIOp:$cond),
 // 
 
 // otherwise, it has to be a fp compare
-def : Pat<(setcc v256f64:$vx, v256f64:$vy, CCSIOp:$cond),
+def : Pat<(setcc v256f64:$vx, v256f64:$vy, cond:$cond),
           (v256i1 (VFMKv (fcond2cc $cond),
-                         (VCMPwv v256f64:$vx, v256f64:$vy,
+                         (VCMPlv v256f64:$vx, v256f64:$vy,
                                  (COPY_TO_REGCLASS (LEAzzi 256), VLS)),
                          (COPY_TO_REGCLASS (LEAzzi 256), VLS)))>;
 
