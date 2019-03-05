@@ -359,6 +359,8 @@ def : Pat<(v256f64 (vec_rotate (i32 simm7:$I), v256f64:$vz)),
 // vec_gather
 def : Pat<(v256f64 (vec_gather v256i64:$addr, v256i1:$vm)),
           (VGTvm v256i64:$addr, v256i1:$vm, (COPY_TO_REGCLASS (LEAzzi 256), VLS))>;
+def : Pat<(v256i64 (vec_gather v256i64:$addr, v256i1:$vm)),
+          (VGTvm v256i64:$addr, v256i1:$vm, (COPY_TO_REGCLASS (LEAzzi 256), VLS))>;
 
 // LVL
 def : Pat<(vec_lvl i32:$sy), (LVL i32:$sy)>;

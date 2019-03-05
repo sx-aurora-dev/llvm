@@ -72,8 +72,10 @@ namespace llvm {
       VEC_POPCOUNT,
 
       /// Scatter and gather instructions.
-      VEC_GATHER,
-      VEC_SCATTER,
+      VEC_MLOAD,   // (ptr, mask)
+      VEC_MSTORE,  // (value, ptr, mask)
+      VEC_GATHER,  // (ptrVec, mask),
+      VEC_SCATTER, // (value, ptrVec, mask)
 
       VEC_LVL,
 
