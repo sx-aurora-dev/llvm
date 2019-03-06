@@ -573,6 +573,7 @@ namespace llvm {
     SDValue LowerTRUNCATE(llvm::SDValue, llvm::SelectionDAG&) const;
 
     SDValue LowerMLOAD(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerVectorArithmetic(SDValue Op, SelectionDAG &DAG) const;
 
     SDValue LowerEH_SJLJ_SETJMP(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerEH_SJLJ_LONGJMP(SDValue Op, SelectionDAG &DAG) const;

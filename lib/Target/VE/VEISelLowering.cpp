@@ -113,8 +113,6 @@ VETargetLowering::LowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const {
   SDLoc dl(Op);
   LLVM_DEBUG(dbgs() << "Lowering SELECT_CC\n");
 
-  errs() << "Lowering SELECT_CC"; Op.dump();
-
   // only lower mask blends this way
   MVT Ty = Op.getSimpleValueType();
   if (!Ty.isVector()) return Op;
@@ -140,18 +138,68 @@ VETargetLowering::LowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const {
   return DAG.getSelect(dl, VecTy, VecCmp, X, Y);
 }
 
+
 SDValue
-VETargetLowering::LowerSETCC(SDValue Op, SelectionDAG &DAG) const {
+VETargetLowering::LowerVectorArithmetic(SDValue Op, SelectionDAG &DAG) const {
   SDLoc dl(Op);
+  LLVM_DEBUG(dbgs() << "Lowering Vector Arithmetic\n");
 
-  LLVM_DEBUG(dbgs() << "Lowering SETCC\n");
+  errs() << "In LowerVectorArithmetic!\n";
 
-  // re-adjust vector SETCCs to a v256i1 type
+  // this only applies to vector yielding operations that are not v256i1
   MVT Ty = Op.getSimpleValueType();
   if (!Ty.isVector()) return Op;
   if (Ty.getVectorElementType() == MVT::i1) return Op;
 
+
+  // only create an integer expansion if requested to do so
+  std::vector<SDValue> FixedOperandList;
+  bool NeededExpansion = false;
+
+  for (size_t i = 0; i < Op->getNumOperands(); ++i) {
+    // check whether this is an v256i1 SETCC
+    auto Operand = Op->getOperand(i);
+    if ((Operand->getOpcode() != ISD::SETCC) ||
+        (Operand.getSimpleValueType() != MVT::v256i1)) {
+      FixedOperandList.push_back(Operand);
+      continue;
+    }
+
+    errs() << "Needs expansion: "; Operand.dump(); errs() << " for user: "; Op.dump();
+
+    // materialize an integer expansion
+    // vselect (MaskReplacement, VEC_BROADCAST(1), VEC_BROADCAST(0))
+    auto ConstZero = DAG.getConstant(0, dl, MVT::i64);
+    auto ZeroBroadcast = DAG.getNode(VEISD::VEC_BROADCAST, dl, MVT::v256i64, ConstZero);
+
+    auto ConstOne = DAG.getConstant(1, dl, MVT::i64);
+    auto OneBroadcast = DAG.getNode(VEISD::VEC_BROADCAST, dl, MVT::v256i64, ConstOne);
+
+    auto Expanded = DAG.getSelect(dl, MVT::v256i64, Operand, OneBroadcast, ZeroBroadcast);
+    FixedOperandList.push_back(Expanded);
+    NeededExpansion = true;
+  }
+
+  if (!NeededExpansion) return Op;
+
+  // re-materialize the operator
+  return DAG.getNode(Op.getOpcode(), dl, Op.getSimpleValueType(), FixedOperandList);
+}
+
+SDValue
+VETargetLowering::LowerSETCC(SDValue Op, SelectionDAG &DAG) const {
+  SDLoc dl(Op);
+
+  // re-adjust vector SETCCs to a v256i1 type
+  MVT Ty = Op.getSimpleValueType();
+  if (!Ty.isVector()) return Op;
+
   LLVM_DEBUG(dbgs() << "Translating vector SETCC to vector mask register\n");
+
+  if (Ty.getVectorElementType() == MVT::i1) return Op;
+
+  // this may cause incosistencies in users that needed SETCC to have a v256i64 type
+  // we fix those up again in ::LowerVectorArithmetic by selecting based on the SETCC result.
   return DAG.getNode(ISD::SETCC, dl, MVT::v256i1, Op.getOperand(0), Op.getOperand(1), Op.getOperand(2));
 }
 
@@ -232,7 +280,8 @@ VETargetLowering::LowerMLOAD(SDValue Op, SelectionDAG &DAG) const {
   LLVM_DEBUG(Op.dumpr(&DAG));
   SDLoc dl(Op);
 
-  abort(); // TODO implement properly!
+  //abort(); // TODO implement properly!
+  errs() << "VE WARNING! Ignoring predicate in MLOAD!\n";
 
   MaskedLoadSDNode *N = cast<MaskedLoadSDNode>(Op.getNode());
 
@@ -241,7 +290,7 @@ VETargetLowering::LowerMLOAD(SDValue Op, SelectionDAG &DAG) const {
   SDValue Chain = N->getChain();
   SDValue PassThru = N->getPassThru();
 
-  MachinePointerInfo info = N->getPointerInfo();
+  // MachinePointerInfo info = N->getPointerInfo();
 
   // FIXME this lowering is unsafe (one thread has to be live!)
   SDValue load = DAG.getLoad(Op.getSimpleValueType(), dl, Chain, BasePtr, N->getMemOperand());
@@ -1429,22 +1478,11 @@ VETargetLowering::VETargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::LOAD, MVT::f128, Custom);
   setOperationAction(ISD::STORE, MVT::f128, Custom);
 
-  // horizontal reductions
-  setOperationAction(ISD::VECREDUCE_ADD, MVT::i32, Custom);
-  setOperationAction(ISD::VECREDUCE_ADD, MVT::i64, Custom);
 
-  setOperationAction(ISD::VECREDUCE_OR, MVT::i32, Custom);
-  setOperationAction(ISD::VECREDUCE_OR, MVT::i64, Custom);
 
-  // re-write vector setcc to use a predicate mask
-  setOperationAction(ISD::SETCC,     MVT::v256i64, Custom);
-  setOperationAction(ISD::SETCC,     MVT::v256i32, Custom);
 
-  // truncate of X to i1 -> X
-  setOperationAction(ISD::TRUNCATE,     MVT::v256i32, Custom);
-  setOperationAction(ISD::VSELECT,      MVT::v256i1, Custom);
 
-  // reduction operationrs
+ // GENERIC VECTOR LEGAL / EXPAND cases
   for (MVT VT : MVT::vector_valuetypes()) {
     setOperationAction(ISD::SELECT_CC,    VT, Custom);
 
@@ -1551,6 +1589,35 @@ VETargetLowering::VETargetLowering(const TargetMachine &TM,
       }
     }
   }
+
+
+
+
+// CUSTOM HANDLERS FOR VECTOR INSTRUCTIONS
+  // horizontal reductions
+  setOperationAction(ISD::VECREDUCE_ADD, MVT::i32, Custom);
+  setOperationAction(ISD::VECREDUCE_ADD, MVT::i64, Custom);
+
+  setOperationAction(ISD::VECREDUCE_OR, MVT::i32, Custom);
+  setOperationAction(ISD::VECREDUCE_OR, MVT::i64, Custom);
+
+  // re-write vector setcc to use a predicate mask
+  setOperationAction(ISD::SETCC,     MVT::v256i64, Custom);
+  setOperationAction(ISD::SETCC,     MVT::v256i32, Custom);
+
+  // truncate of X to i1 -> X
+  setOperationAction(ISD::TRUNCATE,     MVT::v256i32, Custom);
+  setOperationAction(ISD::VSELECT,      MVT::v256i1, Custom);
+
+  // repair the setcc as operand of arithmetic pattern
+  // TODO extend this list as necessary (possibly shifts)
+  setOperationAction(ISD::ADD,      MVT::v256i64, Custom);
+  setOperationAction(ISD::MUL,      MVT::v256i64, Custom);
+  setOperationAction(ISD::SUB,      MVT::v256i64, Custom);
+
+
+
+
 
   // VE has no packed MUL, SDIV, or UDIV operations.
   for (MVT VT : { MVT::v512i32, MVT::v512f32 }) {
@@ -3517,6 +3584,14 @@ LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   case ISD::MSCATTER:
   case ISD::MGATHER:            return LowerMGATHER_MSCATTER(Op, DAG);
 
+  // if a SETCC result is used by vector arithmetic, convert it back into v256i64 (from the v256i1 created in the SETCC lowering)
+  // TODO extend this list as necessary (possibly shifts)
+  case ISD::MUL:
+  case ISD::ADD:
+  case ISD::SUB:
+                                return LowerVectorArithmetic(Op, DAG);
+
+  // modify the return type of SETCC on vectors to v256i1
   case ISD::SETCC:              return LowerSETCC(Op, DAG);
   case ISD::SELECT_CC:          return LowerSELECT_CC(Op, DAG);
   case ISD::VSELECT:            return LowerVSELECT(Op, DAG);
