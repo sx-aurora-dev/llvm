@@ -144,8 +144,6 @@ VETargetLowering::LowerVectorArithmetic(SDValue Op, SelectionDAG &DAG) const {
   SDLoc dl(Op);
   LLVM_DEBUG(dbgs() << "Lowering Vector Arithmetic\n");
 
-  errs() << "In LowerVectorArithmetic!\n";
-
   // this only applies to vector yielding operations that are not v256i1
   MVT Ty = Op.getSimpleValueType();
   if (!Ty.isVector()) return Op;
@@ -165,7 +163,7 @@ VETargetLowering::LowerVectorArithmetic(SDValue Op, SelectionDAG &DAG) const {
       continue;
     }
 
-    errs() << "Needs expansion: "; Operand.dump(); errs() << " for user: "; Op.dump();
+    // errs() << "Needs expansion: "; Operand.dump(); errs() << " for user: "; Op.dump();
 
     // materialize an integer expansion
     // vselect (MaskReplacement, VEC_BROADCAST(1), VEC_BROADCAST(0))
@@ -216,6 +214,7 @@ VETargetLowering::LowerMGATHER_MSCATTER(SDValue Op, SelectionDAG &DAG) const {
   SDValue BasePtr = N->getBasePtr();
   SDValue Mask = N->getMask();
   SDValue Chain = N->getChain();
+  SDValue Scale = N->getScale();
 
   SDValue PassThru;
   SDValue Source;
@@ -227,32 +226,28 @@ VETargetLowering::LowerMGATHER_MSCATTER(SDValue Op, SelectionDAG &DAG) const {
     MaskedScatterSDNode *N = cast<MaskedScatterSDNode>(Op.getNode());
     Source = N->getValue();
   } else {
-    return SDValue();
+    llvm_unreachable("Unexpected SDNode in lowering function");
   }
 
   MVT IndexVT = Index.getSimpleValueType();
-  //MVT MaskVT = Mask.getSimpleValueType();
-  //MVT BasePtrVT = BasePtr.getSimpleValueType();
 
-  // vindex = vindex + baseptr;
-#if 0
-  errs() << "Decomposing GATHER\n";
-  errs() << "\tbasePtr: "; BasePtr.dump();
-  errs() << "\trawIndex: "; Index.dump();
-  errs() << "\trscale:   "; N->getScale().dump();
-#endif
+  // apply scale
+  SDValue ScaledIndex;
+  if (isOneConstant(Scale)) {
+    ScaledIndex = Index;
+  } else {
+    SDValue ScaleBroadcast = DAG.getNode(VEISD::VEC_BROADCAST, dl, IndexVT, Scale);
+    ScaledIndex = DAG.getNode(ISD::MUL, dl, IndexVT, {Index, ScaleBroadcast});
+  }
 
+  // add basePtr
   SDValue addresses;
-  if (isNullConstant(BasePtr) && isOneConstant(N->getScale())) {
-    addresses = Index;
-
+  if (isNullConstant(BasePtr)) {
+    addresses = ScaledIndex;
   } else {
     // re-constitute pointer vector (basePtr + index * scale)
     SDValue BaseBroadcast = DAG.getNode(VEISD::VEC_BROADCAST, dl, IndexVT, BasePtr);
-    SDValue ScaleBroadcast = DAG.getNode(VEISD::VEC_BROADCAST, dl, IndexVT, N->getScale());
-
-    SDValue index_addr = DAG.getNode(ISD::MUL, dl, IndexVT, {Index, ScaleBroadcast});
-    addresses = DAG.getNode(ISD::ADD, dl, IndexVT, {BaseBroadcast, index_addr});
+    addresses = DAG.getNode(ISD::ADD, dl, IndexVT, {BaseBroadcast, ScaledIndex});
   }
 
   if (Op.getOpcode() == ISD::MGATHER) {
@@ -281,7 +276,7 @@ VETargetLowering::LowerMLOAD(SDValue Op, SelectionDAG &DAG) const {
   SDLoc dl(Op);
 
   //abort(); // TODO implement properly!
-  errs() << "VE WARNING! Ignoring predicate in MLOAD!\n";
+  errs() << "VE WARNING! Using gather for masked load!\n";
 
   MaskedLoadSDNode *N = cast<MaskedLoadSDNode>(Op.getNode());
 
@@ -290,10 +285,12 @@ VETargetLowering::LowerMLOAD(SDValue Op, SelectionDAG &DAG) const {
   SDValue Chain = N->getChain();
   SDValue PassThru = N->getPassThru();
 
-  // MachinePointerInfo info = N->getPointerInfo();
+  auto CastPtr = DAG.getNode(VEISD::VEC_BROADCAST, dl, MVT::v256i64, BasePtr);
+  auto ConstStride = DAG.getConstant(8, dl, MVT::i64);
+  auto Offsets = DAG.getNode(VEISD::VEC_SEQ, dl, MVT::v256i64, ConstStride);
+  auto PtrVec = DAG.getNode(ISD::ADD, dl, MVT::v256i64, {CastPtr, Offsets});
 
-  // FIXME this lowering is unsafe (one thread has to be live!)
-  SDValue load = DAG.getLoad(Op.getSimpleValueType(), dl, Chain, BasePtr, N->getMemOperand());
+  auto load = DAG.getNode(VEISD::VEC_GATHER, dl, Op.getNode()->getVTList(), {Chain, PtrVec, Mask});
 
   if (PassThru.isUndef()) {
     return load;
@@ -303,6 +300,7 @@ VETargetLowering::LowerMLOAD(SDValue Op, SelectionDAG &DAG) const {
   }
 
 #if 0
+  // TODO specialized code paths for prefix masks (using LVL)
   if (Mask.getOpcode() != ISD::BUILD_VECTOR || Mask.getNumOperands() != 256) {
     LLVM_DEBUG(dbgs() << "Cannot handle masked_load with complex masks.\n");
     return SDValue();
@@ -3366,6 +3364,11 @@ SDValue VETargetLowering::LowerINSERT_VECTOR_ELT(SDValue Op,
       VT == MVT::v256i64 || VT == MVT::v256f64)
     return Op;
 
+  // More involved mask bit insertion
+  if (VT.getVectorElementType() == MVT::i1) {
+    llvm_unreachable("TODO implement insert from v256i1");
+  }
+
   // Special treatements for packed V64 types.
   if (VT == MVT::v512i32 || VT == MVT::v512f32) {
     // FIXME: needs special treatements for packed V64 types,
@@ -3524,6 +3527,12 @@ SDValue VETargetLowering::LowerEXTRACT_VECTOR_ELT(SDValue Op,
   if (VT == MVT::v256i32 || VT == MVT::v256f32 ||
       VT == MVT::v256i64 || VT == MVT::v256f64)
     return Op;
+
+  // More involved mask bit extraction
+  if (VT.getVectorElementType() == MVT::i1) {
+    llvm_unreachable("TODO implement extract from v256i1");
+    // TODO extract the mask bit and promote it to i64 (scalar bool type)
+  }
 
   // Special treatements for packed V64 types.
   if (VT == MVT::v512i32 || VT == MVT::v512f32) {
