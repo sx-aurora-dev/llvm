@@ -349,15 +349,15 @@ def : Pat<(v256f64 (vec_rotate (i32 simm7:$I), v256f64:$vz)),
           (VMVi (i32 simm7:$I), v256f64:$vz,
                 (COPY_TO_REGCLASS (LEAzzi 256), VLS))>;
 
-// Shuffle
-// TODO
-
 // Scatter
-// def : Pat<(vec_scatter v256f64:$vx, v256i64:$addr, v256i1:$vm),
-//           (VSCvm v256i64:$vx, v256i64:$addr, v256i1:$vm,
-//                 (COPY_TO_REGCLASS (LEAzzi 256), VLS))>;
+def : Pat<(vec_scatter v256f64:$vx, v256i64:$addr, v256i1:$vm),
+          (VSCvm v256f64:$vx, v256i64:$addr, v256i1:$vm,
+                (COPY_TO_REGCLASS (LEAzzi 256), VLS))>;
+def : Pat<(vec_scatter v256i64:$vx, v256i64:$addr, v256i1:$vm),
+          (VSCvm v256i64:$vx, v256i64:$addr, v256i1:$vm,
+                (COPY_TO_REGCLASS (LEAzzi 256), VLS))>;
 
-// vec_gather
+// Gather
 def : Pat<(v256f64 (vec_gather v256i64:$addr, v256i1:$vm)),
           (VGTvm v256i64:$addr, v256i1:$vm, (COPY_TO_REGCLASS (LEAzzi 256), VLS))>;
 def : Pat<(v256i64 (vec_gather v256i64:$addr, v256i1:$vm)),
@@ -446,6 +446,9 @@ defm : vseq_for_vector_length<8, v8i32, v8i64>;
 defm : vseq_for_vector_length<4, v4i32, v4i64>;
 defm : vseq_for_vector_length<2, v2i32, v2i64>;
 
+
+def : Pat<(v256i64 (vec_seq (i64 simm7:$imm))),
+          (VMPYli $imm, (VSEQv 256), (COPY_TO_REGCLASS (LEAzzi 256), VLS))>;
 
 // Double-Precision Arithmetic
 //
