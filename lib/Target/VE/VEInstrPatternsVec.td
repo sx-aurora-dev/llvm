@@ -196,6 +196,9 @@ defm : ext_for_vector_length<4, v4i32, v4i64>;
 def : Pat<(v256f64 (bitconvert v256i64:$vi)),
           (COPY_TO_REGCLASS $vi, V64)>;
 
+def : Pat<(v256f32 (bitconvert v256i32:$vi)),
+          (VSHFi $vi, $vi, 4, 256)>;
+
 def : Pat<(v256i64 (bitconvert v256f64:$vf)),
           (COPY_TO_REGCLASS $vf, V64)>;
 
@@ -213,6 +216,14 @@ def : Pat<(v512i1 (bitconvert v8i64:$v)),
 
 def : Pat<(v8i64 (bitconvert v512i1:$vmp)),
           (v8i64 (COPY_TO_REGCLASS (VMP2V $vmp), V64))>;
+
+def : Pat<(v2i32 (bitconvert i64:$sx)), (LSVi
+          (LSVi (v2i32 (IMPLICIT_DEF)), 1, (i64 (SLLri (SRLri i64:$sx, 32), 32))),
+          0, (i64 (SLLri $sx, 32)))>;
+
+def : Pat<(v2f32 (bitconvert i64:$sx)), (LSVi
+          (LSVi (v2f32 (IMPLICIT_DEF)), 1, (i64 (SLLri (SRLri i64:$sx, 32), 32))),
+          0, (i64 (SLLri $sx, 32)))>;
 
 // Series of SCALAR_TO_VECTOR for all VE vector types,
 //   v512i32, v512f32
@@ -391,27 +402,49 @@ defm : vbrd_for_vector_length<4, v4i32, v4i64, v4f32, v4f64>;
 defm : vbrd_for_vector_length<2, v2i32, v2i64, v2f32, v2f64>;
 
 // Condition Code
-// signed compare
-def : Pat<(setcc v256i64:$vx, v256i64:$vy, CCSIOp:$cond),
-          (v256i1 (VFMKv (icond2cc $cond),
-                         (VCPXlv v256i64:$vx, v256i64:$vy,
-                                  (COPY_TO_REGCLASS (LEAzzi 256), VLS)),
-                         (COPY_TO_REGCLASS (LEAzzi 256), VLS)))>;
+multiclass setcc_for_vector_length<int length, ValueType vi32, ValueType vi64,
+                                   ValueType vf32, ValueType vf64> {
+  // signed compare
+  def : Pat<(setcc vi64:$vx, vi64:$vy, CCSIOp:$cond),
+            (v256i1 (VFMKv (icond2cc $cond),
+                           (VCPXlv vi64:$vx, vi64:$vy,
+                                    (COPY_TO_REGCLASS (LEAzzi length), VLS)),
+                           (COPY_TO_REGCLASS (LEAzzi length), VLS)))>;
+  def : Pat<(setcc vi32:$vx, vi32:$vy, CCSIOp:$cond),
+            (v256i1 (VFMKv (icond2cc $cond),
+                           (VCPSwsxv vi32:$vx, vi32:$vy,
+                                    (COPY_TO_REGCLASS (LEAzzi length), VLS)),
+                           (COPY_TO_REGCLASS (LEAzzi length), VLS)))>;
+  // unsigned compare
+  def : Pat<(setcc vi64:$vx, vi64:$vy, CCUIOp:$cond),
+            (v256i1 (VFMKv (icond2cc $cond),
+                           (VCMPlv vi64:$vx, vi64:$vy,
+                                    (COPY_TO_REGCLASS (LEAzzi length), VLS)),
+                           (COPY_TO_REGCLASS (LEAzzi length), VLS)))>;
+  def : Pat<(setcc vi32:$vx, vi32:$vy, CCUIOp:$cond),
+            (v256i1 (VFMKv (icond2cc $cond),
+                           (VADSwsxi 0, (VCMPwv vi32:$vx, vi32:$vy,
+                                          (COPY_TO_REGCLASS (LEAzzi length), VLS)),
+                                     (COPY_TO_REGCLASS (LEAzzi length), VLS)
+                           ),
+                           (COPY_TO_REGCLASS (LEAzzi length), VLS)))>;
+  // fp compare
+  def : Pat<(setcc vf64:$vx, vf64:$vy, cond:$cond),
+            (v256i1 (VFMKv (fcond2cc $cond),
+                           (VFCPdv vf64:$vx, vf64:$vy,
+                                   (COPY_TO_REGCLASS (LEAzzi length), VLS)),
+                           (COPY_TO_REGCLASS (LEAzzi length), VLS)))>;
+  def : Pat<(setcc vf32:$vx, vf32:$vy, cond:$cond),
+            (v256i1 (VFMKv (fcond2cc $cond),
+                           (VFCPsv vf32:$vx, vf32:$vy,
+                                   (COPY_TO_REGCLASS (LEAzzi length), VLS)),
+                           (COPY_TO_REGCLASS (LEAzzi length), VLS)))>;
+}
 
-// unsigned compare
-def : Pat<(setcc v256i64:$vx, v256i64:$vy, CCUIOp:$cond),
-          (v256i1 (VFMKv (icond2cc $cond),
-                         (VCMPlv v256i64:$vx, v256i64:$vy,
-                                  (COPY_TO_REGCLASS (LEAzzi 256), VLS)),
-                         (COPY_TO_REGCLASS (LEAzzi 256), VLS)))>;
-
-
-// fp compare
-def : Pat<(setcc v256f64:$vx, v256f64:$vy, cond:$cond),
-          (v256i1 (VFMKv (fcond2cc $cond),
-                         (VFCPdv v256f64:$vx, v256f64:$vy,
-                                 (COPY_TO_REGCLASS (LEAzzi 256), VLS)),
-                         (COPY_TO_REGCLASS (LEAzzi 256), VLS)))>;
+defm : setcc_for_vector_length<256, v256i32, v256i64, v256f32, v256f64>;
+defm : setcc_for_vector_length<8, v8i32, v8i64, v8f32, v8f64>;
+defm : setcc_for_vector_length<4, v4i32, v4i64, v4f32, v4f64>;
+defm : setcc_for_vector_length<2, v2i32, v2i64, v2f32, v2f64>;
 
 // Vector Select
 
@@ -426,6 +459,11 @@ def : Pat<(v256i64 (vselect v256i1:$m, v256i64:$vy, v256i64:$vz)),
 def : Pat<(v256f64 (vselect v256i1:$m, v256f64:$vy, v256f64:$vz)),
           (v256f64 (VMRGvm v256f64:$vz, v256f64:$vy, v256i1:$m,
                            (COPY_TO_REGCLASS (LEAzzi 256), VLS)))>;
+
+def : Pat<(v256f32 (vselect v256i1:$m, v256f32:$vy, v256f32:$vz)),
+          (v256f32 (VMRGvm v256f32:$vz, v256f32:$vy, v256i1:$m,
+                           (COPY_TO_REGCLASS (LEAzzi 256), VLS)))>;
+
 def : Pat<(v512f32 (vselect v512i1:$m, v512f32:$vy, v512f32:$vz)),
           (VMRGpvm v512f32:$vz, v512f32:$vy, v512i1:$m,
                    (COPY_TO_REGCLASS (LEAzzi 256), VLS))>;
