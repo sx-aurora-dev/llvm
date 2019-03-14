@@ -367,12 +367,22 @@ def : Pat<(vec_scatter v256f64:$vx, v256i64:$addr, v256i1:$vm),
 def : Pat<(vec_scatter v256i64:$vx, v256i64:$addr, v256i1:$vm),
           (VSCvm v256i64:$vx, v256i64:$addr, v256i1:$vm,
                 (COPY_TO_REGCLASS (LEAzzi 256), VLS))>;
+def : Pat<(vec_scatter v256f32:$vx, v256i64:$addr, v256i1:$vm),
+          (VSCUvm v256f32:$vx, v256i64:$addr, v256i1:$vm,
+                (COPY_TO_REGCLASS (LEAzzi 256), VLS))>;
+def : Pat<(vec_scatter v256i32:$vx, v256i64:$addr, v256i1:$vm),
+          (VSCLvm v256i32:$vx, v256i64:$addr, v256i1:$vm,
+                (COPY_TO_REGCLASS (LEAzzi 256), VLS))>;
 
 // Gather
 def : Pat<(v256f64 (vec_gather v256i64:$addr, v256i1:$vm)),
           (VGTvm v256i64:$addr, v256i1:$vm, (COPY_TO_REGCLASS (LEAzzi 256), VLS))>;
 def : Pat<(v256i64 (vec_gather v256i64:$addr, v256i1:$vm)),
           (VGTvm v256i64:$addr, v256i1:$vm, (COPY_TO_REGCLASS (LEAzzi 256), VLS))>;
+def : Pat<(v256f32 (vec_gather v256i64:$addr, v256i1:$vm)),
+          (VGTUvm v256i64:$addr, v256i1:$vm, (COPY_TO_REGCLASS (LEAzzi 256), VLS))>;
+def : Pat<(v256i32 (vec_gather v256i64:$addr, v256i1:$vm)),
+          (VGTLzxvm v256i64:$addr, v256i1:$vm, (COPY_TO_REGCLASS (LEAzzi 256), VLS))>;
 
 // LVL
 def : Pat<(vec_lvl i32:$sy), (LVL i32:$sy)>;
@@ -527,6 +537,9 @@ multiclass farith_for_vector_length<int length, ValueType vf32,
                                     ValueType vf64> {
   def : Pat<(fsqrt vf64:$vy),
             (VFSQRTdv vf64:$vy,
+                    (COPY_TO_REGCLASS (LEAzzi length), VLS))>;
+  def : Pat<(fsqrt vf32:$vy),
+            (VFSQRTsv vf32:$vy,
                     (COPY_TO_REGCLASS (LEAzzi length), VLS))>;
   def : Pat<(fadd vf32:$vy, vf32:$vz),
             (VFADsv vf32:$vy, vf32:$vz,
