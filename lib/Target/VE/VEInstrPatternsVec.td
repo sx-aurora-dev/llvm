@@ -190,6 +190,11 @@ defm : ext_for_vector_length<4, v4i32, v4i64>;
 // possible to fix erros and use following pattern.
 // defm : ext_for_vector_length<2, v2i32, v2i64>;
 
+def : Pat<(v256i32 (zext v256i1:$vm)),
+          (VMRGim 0, (VBRDi32i 1, 256), $vm, 256)>;
+def : Pat<(v256i64 (zext v256i1:$vm)),
+          (VMRGim 0, (VBRDi 1, 256), $vm, 256)>;
+
 // Bitconvert for mask registers between
 // v256i64 and v256f64.
 
