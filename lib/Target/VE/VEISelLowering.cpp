@@ -163,17 +163,19 @@ VETargetLowering::LowerVectorArithmetic(SDValue Op, SelectionDAG &DAG) const {
       continue;
     }
 
+    MVT ElemTy = Ty.getScalarType();
+
     // errs() << "Needs expansion: "; Operand.dump(); errs() << " for user: "; Op.dump();
 
     // materialize an integer expansion
     // vselect (MaskReplacement, VEC_BROADCAST(1), VEC_BROADCAST(0))
-    auto ConstZero = DAG.getConstant(0, dl, MVT::i64);
-    auto ZeroBroadcast = DAG.getNode(VEISD::VEC_BROADCAST, dl, MVT::v256i64, ConstZero);
+    auto ConstZero = DAG.getConstant(0, dl, ElemTy);
+    auto ZeroBroadcast = DAG.getNode(VEISD::VEC_BROADCAST, dl, Ty, ConstZero);
 
-    auto ConstOne = DAG.getConstant(1, dl, MVT::i64);
-    auto OneBroadcast = DAG.getNode(VEISD::VEC_BROADCAST, dl, MVT::v256i64, ConstOne);
+    auto ConstOne = DAG.getConstant(1, dl, ElemTy);
+    auto OneBroadcast = DAG.getNode(VEISD::VEC_BROADCAST, dl, Ty, ConstOne);
 
-    auto Expanded = DAG.getSelect(dl, MVT::v256i64, Operand, OneBroadcast, ZeroBroadcast);
+    auto Expanded = DAG.getSelect(dl, Ty, Operand, OneBroadcast, ZeroBroadcast);
     FixedOperandList.push_back(Expanded);
     NeededExpansion = true;
   }
@@ -192,9 +194,9 @@ VETargetLowering::LowerSETCC(SDValue Op, SelectionDAG &DAG) const {
   MVT Ty = Op.getSimpleValueType();
   if (!Ty.isVector()) return Op;
 
-  LLVM_DEBUG(dbgs() << "Translating vector SETCC to vector mask register\n");
-
   if (Ty.getVectorElementType() == MVT::i1) return Op;
+
+  LLVM_DEBUG(dbgs() << "Translating vector SETCC to vector mask register\n");
 
   // this may cause incosistencies in users that needed SETCC to have a v256i64 type
   // we fix those up again in ::LowerVectorArithmetic by selecting based on the SETCC result.
@@ -1612,7 +1614,9 @@ VETargetLowering::VETargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::ADD,      MVT::v256i64, Custom);
   setOperationAction(ISD::MUL,      MVT::v256i64, Custom);
   setOperationAction(ISD::SUB,      MVT::v256i64, Custom);
-
+  setOperationAction(ISD::ADD,      MVT::v256i32, Custom);
+  setOperationAction(ISD::MUL,      MVT::v256i32, Custom);
+  setOperationAction(ISD::SUB,      MVT::v256i32, Custom);
 
 
 
