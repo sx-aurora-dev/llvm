@@ -112,7 +112,7 @@ Then, cross-compile it with clang/llvm for VE and install it.
     $ cd work/ve-csu
     $ export DEST=$HOME/.local
     $ make TARGET=ve-linux
-    $ make DEST=$DEST/lib/clang/9.0.0/lib/linux/ve install
+    $ make DEST=$DEST/lib/clang/8.0.0/lib/linux/ve install
 
 How to cross-compile Compiler-RT for NEC SX-Aurora VE
 =====================================================
@@ -138,7 +138,7 @@ Cross-compile compiler-rt with clang/llvm for VE and install it.
       -DCOMPILER_RT_DEFAULT_TARGET_ONLY=ON \
       -DLLVM_CONFIG_PATH=$DEST/bin/llvm-config \
       -DCMAKE_BUILD_TYPE="Release" \
-      -DCMAKE_INSTALL_PREFIX=$DEST/lib/clang/9.0.0/ \
+      -DCMAKE_INSTALL_PREFIX=$DEST/lib/clang/8.0.0/ \
       -DCMAKE_CXX_FLAGS="-nostdlib" \
       -DCMAKE_CXX_FLAGS_RELEASE="-O3 -fno-vectorize -fno-slp-vectorize" \
       -DCMAKE_C_FLAGS="-nostdlib" \
@@ -167,7 +167,7 @@ Cross-compile libunwind with clang/llvm for VE and install it.
       -DLLVM_CONFIG_PATH=$DEST/bin/llvm-config \
       -DLLVM_ENABLE_LIBCXX=ON \
       -DCMAKE_BUILD_TYPE="Release" \
-      -DCMAKE_INSTALL_PREFIX=$DEST/lib/clang/9.0.0/ \
+      -DCMAKE_INSTALL_PREFIX=$DEST/lib/clang/8.0.0/ \
       -DLIBUNWIND_LIBDIR_SUFFIX=/linux/ve/ \
       -DCMAKE_CXX_FLAGS="-nostdlib" \
       -DCMAKE_CXX_FLAGS_RELEASE="-O3 -fno-vectorize -fno-slp-vectorize" \
@@ -192,7 +192,7 @@ Cross-compile libcxxabi with clang/llvm for VE and install it.
       -DCMAKE_CXX_COMPILER_TARGET="ve-linux" \
       -DLLVM_CONFIG_PATH=$DEST/bin/llvm-config \
       -DCMAKE_BUILD_TYPE="Release" \
-      -DCMAKE_INSTALL_PREFIX=$DEST/lib/clang/9.0.0/ \
+      -DCMAKE_INSTALL_PREFIX=$DEST/lib/clang/8.0.0/ \
       -DLIBCXXABI_LIBDIR_SUFFIX=/linux/ve/ \
       -DLIBCXXABI_USE_LLVM_UNWINDER=YES \
       -DCMAKE_CXX_FLAGS="-nostdlib++" \
@@ -225,7 +225,7 @@ Cross-compile libcxx with clang/llvm for VE and install it.
       -DCMAKE_CXX_COMPILER_TARGET="ve-linux" \
       -DLLVM_CONFIG_PATH=$DEST/bin/llvm-config \
       -DCMAKE_BUILD_TYPE="Release" \
-      -DCMAKE_INSTALL_PREFIX=$DEST/lib/clang/9.0.0/ \
+      -DCMAKE_INSTALL_PREFIX=$DEST/lib/clang/8.0.0/ \
       -DLIBCXX_LIBDIR_SUFFIX=/linux/ve/ \
       -DCMAKE_C_FLAGS="-nostdlib++" \
       -DCMAKE_C_FLAGS_RELEASE="-O3 -fno-vectorize -fno-slp-vectorize" \
@@ -249,7 +249,7 @@ Cross-compile OpenMP with clang/llvm for VE and install it.
       -DCMAKE_C_COMPILER_TARGET="ve-linux" \
       -DCMAKE_CXX_COMPILER_TARGET="ve-linux" \
       -DCMAKE_BUILD_TYPE="Release" \
-      -DCMAKE_INSTALL_PREFIX=$DEST/lib/clang/9.0.0/ \
+      -DCMAKE_INSTALL_PREFIX=$DEST/lib/clang/8.0.0/ \
       -DOPENMP_LIBDIR_SUFFIX=/linux/ve \
       -DCMAKE_CXX_FLAGS="" \
       -DCMAKE_CXX_FLAGS_RELEASE="-O3 -fno-vectorize -fno-slp-vectorize -mllvm -combiner-use-vector-store=false" \
