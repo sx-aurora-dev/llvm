@@ -162,6 +162,9 @@ BitVector VERegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   // VL register is reserved
   // Reserved.set(VE::VL);
 
+  Reserved.set(VE::VM0);
+  Reserved.set(VE::VMP0);
+
   // Other Misc registers are reserved
   Reserved.set(VE::UCC);
   Reserved.set(VE::PSW);

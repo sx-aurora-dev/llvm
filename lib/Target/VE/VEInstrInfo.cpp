@@ -389,6 +389,13 @@ void VEInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
     BuildMI(MBB, I, DL, get(VE::ANDM), DestReg)
         .addReg(VE::VM0)
         .addReg(SrcReg, getKillRegState(KillSrc));
+  else if (VE::VMCRegClass.contains(SrcReg) && VE::V64RegClass.contains(DestReg)) {
+    BuildMI(MBB, I, DL, get(VE::VBRDi), DestReg).addImm(1);
+    BuildMI(MBB, I, DL, get(VE::VMRGim), DestReg)
+      .addImm(0)
+      .addReg(DestReg, getKillRegState(true))
+      .addReg(SrcReg, getKillRegState(KillSrc));
+  }
   else if (VE::F128RegClass.contains(DestReg, SrcReg)) {
     // Use two FMOVD instructions.
     const unsigned subRegIdx[] = { VE::sub_even, VE::sub_odd };
