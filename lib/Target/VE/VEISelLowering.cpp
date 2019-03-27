@@ -1510,13 +1510,16 @@ VETargetLowering::VETargetLowering(const TargetMachine &TM,
       setOperationAction(ISD::ZERO_EXTEND, VT, Expand);
 
       setOperationAction(ISD::SCALAR_TO_VECTOR,   VT, Expand);
-      setOperationAction(ISD::INSERT_VECTOR_ELT,  VT, Expand);
-      setOperationAction(ISD::EXTRACT_VECTOR_ELT, VT, Expand);
 
-      if (VT.getVectorElementType() == MVT::i1)
+      if (VT.getVectorElementType() == MVT::i1) {
+        setOperationAction(ISD::INSERT_VECTOR_ELT,  VT, Custom);
+        setOperationAction(ISD::EXTRACT_VECTOR_ELT, VT, Custom);
         setOperationAction(ISD::BUILD_VECTOR,       VT, Custom);
-      else
+      } else {
+        setOperationAction(ISD::INSERT_VECTOR_ELT,  VT, Expand);
+        setOperationAction(ISD::EXTRACT_VECTOR_ELT, VT, Expand);
         setOperationAction(ISD::BUILD_VECTOR,       VT, Expand);
+      }
 
       setOperationAction(ISD::CONCAT_VECTORS,     VT, Expand);
       setOperationAction(ISD::INSERT_SUBVECTOR,   VT, Expand);
@@ -3539,7 +3542,13 @@ SDValue VETargetLowering::LowerEXTRACT_VECTOR_ELT(SDValue Op,
 
   // More involved mask bit extraction
   if (VT.getVectorElementType() == MVT::i1) {
-    llvm_unreachable("TODO implement extract from v256i1");
+    errs() << "VE Warning: ExtractELT from v256i1!\n";
+    SDLoc dl(Op);
+    SDValue zerobrd = DAG.getNode(VEISD::VEC_BROADCAST, dl, MVT::v256i32, {DAG.getConstant(0, dl, MVT::i32)});
+    SDValue onebrd = DAG.getNode(VEISD::VEC_BROADCAST, dl, MVT::v256i32, {DAG.getConstant(1, dl, MVT::i32)});
+    SDValue expanded_vector = DAG.getNode(ISD::VSELECT, dl, MVT::v256i32, {Op.getOperand(0), onebrd, zerobrd});
+    return DAG.getNode(ISD::EXTRACT_VECTOR_ELT, dl, Op.getValueType(), {expanded_vector, Op.getOperand(1)});
+    //llvm_unreachable("TODO implement extract from v256i1");
     // TODO extract the mask bit and promote it to i64 (scalar bool type)
   }
 
