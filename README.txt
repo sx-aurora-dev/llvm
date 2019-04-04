@@ -55,7 +55,7 @@ Use llvm-dev tool.  This retrieves source files, configures not only host
 programs but also cross-compiling libraries, compiles all of them,
 and installs all under ./install directory.
 
-    $ git clone https://github.com/SXAuroraTSUBASAResearch/llvm-dev.git
+    $ git clone https://github.com/sx-aurora-dev/llvm-dev.git
     $ cd llvm-dev
     $ make shallow
     $ make
@@ -69,19 +69,19 @@ First, check out llvm, clang, and other libraries like below.
 
     $ mkdir work
     $ cd work
-    $ git clone https://github.com/SXAuroraTSUBASAResearch/llvm.git \
+    $ git clone https://github.com/sx-aurora-dev/llvm.git \
       llvm -b develop
-    $ git clone https://github.com/SXAuroraTSUBASAResearch/clang.git \
+    $ git clone https://github.com/sx-aurora-dev/clang.git \
       llvm/tools/clang -b develop
-    $ git clone https://github.com/SXAuroraTSUBASAResearch/compiler-rt.git \
+    $ git clone https://github.com/sx-aurora-dev/compiler-rt.git \
       llvm/projects/compiler-rt -b develop
-    $ git clone https://github.com/SXAuroraTSUBASAResearch/libunwind.git \
+    $ git clone https://github.com/sx-aurora-dev/libunwind.git \
       llvm/projects/libunwind -b develop
-    $ git clone https://github.com/SXAuroraTSUBASAResearch/libcxx.git \
+    $ git clone https://github.com/sx-aurora-dev/libcxx.git \
       llvm/projects/libcxx -b develop
-    $ git clone https://github.com/SXAuroraTSUBASAResearch/libcxxabi.git \
+    $ git clone https://github.com/sx-aurora-dev/libcxxabi.git \
       llvm/projects/libcxxabi -b develop
-    $ git clone https://github.com/SXAuroraTSUBASAResearch/openmp.git \
+    $ git clone https://github.com/sx-aurora-dev/openmp.git \
       llvm/projects/openmp -b develop
 
 Then, compile clang/llvm with ninja and install it.
@@ -104,7 +104,7 @@ How to cross-compile CSU for NEC SX-Aurora VE
 First, check out ve-csu like below.
 
     $ cd work
-    $ git clone https://github.com/SXAuroraTSUBASAResearch/ve-csu.git \
+    $ git clone https://github.com/sx-aurora-dev/ve-csu.git \
       ve-csu
 
 Then, cross-compile it with clang/llvm for VE and install it.
@@ -281,7 +281,7 @@ assistance with LLVM.
 Intrinsics for SX-Aurora VE
 ===========================
 
-See https://sxauroratsubasaresearch.github.io/intrinsics.html.
+See https://sx-aurora.github.io/posts/ve-llvm-intrinsics .
 
 
 The LLVM Compiler Infrastructure
