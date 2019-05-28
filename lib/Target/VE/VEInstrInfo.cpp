@@ -426,7 +426,7 @@ void VEInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
     BuildMI(MBB, I, DL, get(VE::LVL), VLReg)
       .addReg(SaveReg, getKillRegState(true));
   }
-  else if (VE::VMRegClass.contains(DestReg, SrcReg))
+  else if (VE::VMCRegClass.contains(SrcReg) && VE::VMRegClass.contains(DestReg))
     BuildMI(MBB, I, DL, get(VE::ANDM), DestReg)
         .addReg(VE::VM0)
         .addReg(SrcReg, getKillRegState(KillSrc));
